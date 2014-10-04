@@ -11,6 +11,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <CoreVideo/CoreVideo.h>
 #import <CoreImage/CoreImage.h>
+#import <CoreMedia/CoreMedia.h>
 #import <CoreGraphics/CoreGraphics.h>
 
 @interface MCamera : NSObject <AVCaptureVideoDataOutputSampleBufferDelegate>
@@ -77,6 +78,66 @@
 // @param (position)    レンズ位置(0.0~1.0)
 // @return              レンズ位置調整に対応しているか
 - (BOOL)setLensePosition:(float)position;
+
+//
+// レンズ位置を取得
+//
+// @return      レンズ位置(0.0~1.0)
+- (float)lensePosition;
+
+// ==============================
+// 露光時間調整
+// ==============================
+
+#define EXPOSURE_DURATION_POWER 5
+
+//
+// 露光時間の設定が可能か
+//
+// @return  可能かどうか
+- (BOOL)isCustomableExposureDuration;
+
+//
+// 露光時間を設定
+//
+// @param (duration)    設定する露光時間(0~1)
+// @return              実際に設定された露光時間[ms]
+- (float)setExposureDuration:(float)duration;
+
+//
+// 露光時間を取得
+//
+// @return  露光時間[ms]
+- (float)exposureDuration;
+
+//
+// 現在の露光時間を0-1の範囲で取得
+//
+// @return  正規化された露光時間(0~1)
+- (float)normalizedExposureDuration;
+
+
+// ==============================
+// ISO調整
+// ==============================
+
+//
+// 調整可能かどうか
+//
+// @return  可能かどうか
+- (BOOL)isCustomableISO;
+
+//
+// ISOを調整
+//
+// @param (isoValue)    設定するISO値
+- (void)setISO:(float)isoValue;
+
+//
+// ISO値を取得
+//
+// @return      現在のISO値
+- (float)ISO;
 
 // ==============================
 // ユーティリティ

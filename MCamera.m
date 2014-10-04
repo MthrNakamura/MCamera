@@ -48,6 +48,9 @@
     [self.session startRunning];
     
     
+    NSLog(@"minDuration: %f", [self.videoInput.device minExposureTargetBias]);
+    NSLog(@"maxDuration: %f", [self.videoInput.device maxExposureTargetBias]);
+    
     return YES;
 }
 
@@ -155,10 +158,133 @@
     return YES;
 }
 
+
+//
+// レンズ位置を取得
+//
+// @return      レンズ位置(0.0~1.0)
+- (float)lensePosition
+{
+    return ([self isLaterVersion:8.0])? self.videoInput.device.lensPosition:0.0;
+}
+
+
+// ==============================
+// 露光時間調整
+// ==============================
+
+//
+// 露光時間の設定が可能か
+//
+// @return  可能かどうか
+- (BOOL)isCustomableExposureDuration
+{
+    return [self isLaterVersion:8.0];
+}
+
+//
+// 露光時間を調整
+//
+// @param (duration)    設定する露光時間(0~1)
+// @return              実際に設定された露光時間[ms]
+- (float)setExposureDuration:(float)duration
+{
+    if (![self isLaterVersion:8.0])
+        return [self exposureDuration];
+    
+    [self beginConfiguration];
+    
+    // 露光時間モードを変更
+    self.videoInput.device.exposureMode = AVCaptureExposureModeCustom;
+    
+    // 露光時間を設定
+    {
+        duration = powf(duration, EXPOSURE_DURATION_POWER);
+        float minDurationSeconds = MAX(CMTimeGetSeconds(self.videoInput.device.activeFormat.minExposureDuration), 1.0/1000);
+        float maxDurationSeconds = CMTimeGetSeconds(self.videoInput.device.activeFormat.maxExposureDuration);
+        float newDurationSeconds = duration * (maxDurationSeconds - minDurationSeconds) + minDurationSeconds;
+    
+        [self.videoInput.device setExposureModeCustomWithDuration:CMTimeMakeWithSeconds(newDurationSeconds, 1000*1000*1000)
+                                                              ISO:AVCaptureISOCurrent completionHandler:nil];
+    }
+        
+    [self endConfiguration];
+
+    return [self exposureDuration];
+}
+
+//
+// 露光時間を取得
+//
+// @return  露光時間[ms]
+- (float)exposureDuration
+{
+    return CMTimeGetSeconds([self.videoInput.device exposureDuration])*1000.0;
+}
+
+//
+// 現在の露光時間を0-1の範囲で取得
+//
+// @return  正規化された露光時間(0~1)
+- (float)normalizedExposureDuration
+{
+    float minDuration = MAX(CMTimeGetSeconds(self.videoInput.device.activeFormat.minExposureDuration), 1.0/1000);
+    float maxDuration = CMTimeGetSeconds(self.videoInput.device.activeFormat.maxExposureDuration);
+    float currentDuration = [self exposureDuration] / 1000.0;
+    
+    return pow((currentDuration - minDuration) / (maxDuration - minDuration), 1/EXPOSURE_DURATION_POWER);
+}
+
+
+// ==============================
+// ISO調整
+// ==============================
+
+//
+// 調整可能かどうか
+//
+// @return  可能かどうか
+- (BOOL)isCustomableISO
+{
+    return [self isLaterVersion:8.0];
+}
+
+//
+// ISOを調整
+//
+// @param (isoValue)    設定するISO値(0~1)
+- (void)setISO:(float)isoValue
+{
+    [self beginConfiguration];
+    
+    [self.videoInput.device setExposureMode:AVCaptureExposureModeCustom];
+    NSLog(@"set iso value %f", isoValue);
+    
+    // ISO値を設定
+    float maxISO = self.videoInput.device.activeFormat.maxISO;
+    float minISO = self.videoInput.device.activeFormat.minISO;
+    isoValue = (maxISO - minISO) * isoValue + minISO;
+    [self.videoInput.device setExposureModeCustomWithDuration:AVCaptureExposureDurationCurrent ISO:isoValue completionHandler:nil];
+    
+    [self endConfiguration];
+}
+
+//
+// ISO値を取得
+//
+// @return      現在のISO値
+- (float)ISO
+{
+    float iso = self.videoInput.device.ISO;
+    float maxISO = self.videoInput.device.activeFormat.maxISO;
+    float minISO = self.videoInput.device.activeFormat.minISO;
+    return (iso - minISO) / (maxISO - minISO);
+}
+
+
 // ==============================
 // ユーティリティ
 // ==============================
-
 
 //
 // SampleBufferからUIImageを取得
@@ -244,7 +370,6 @@
 // @return          指定したバージョンよりも後
 - (BOOL)isLaterVersion:(float)version
 {
-    NSLog(@"current version: %f", [self iOSVersion]);
     return version <= [self iOSVersion];
 }
 
