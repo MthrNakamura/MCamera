@@ -14,7 +14,7 @@
 // ==============================
 // カメラ初期化処理
 // ==============================
-- (BOOL)setup
+- (BOOL)start
 {
 
     NSError *error = nil;
@@ -26,9 +26,6 @@
     
     // カメラからの入力を作成
     AVCaptureDevice *camera = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
-    
-    // 1秒あたり4回画像をキャプチャ
-    //[camera setActiveVideoMinFrameDuration:CMTimeMake(10, 60)];
     
     // カメラからの入力を作成し、セッションに追加
     self.videoInput = [AVCaptureDeviceInput deviceInputWithDevice:camera error:&error];
@@ -66,14 +63,108 @@
 // ==============================
 // カメラ撮影処理
 // ==============================
+
+//
+// 写真を撮影
+//
+// @return  撮影した画像
 - (UIImage *)capture
 { 
     return self.previewImageView.image;
 }
 
+
+// ===============================
+// フォーカス設定
+// ===============================
+
+//
+// 指定した位置にフォーカスを合わせる
+//
+// @param (point)       フォーカスを合わせる位置
+// @param (drawRect)    フォーカス位置に矩形を描画するか
+// @return              レンズ位置(0.0~1.0)
+- (float)focus:(CGPoint)point;
+{
+    
+    [self beginConfiguration];
+    
+    // フォーカス設定がサポートされているか
+    if ([self.videoInput.device isFocusPointOfInterestSupported] &&
+        [self.videoInput.device isFocusModeSupported:AVCaptureFocusModeAutoFocus]) {
+        
+        // フォーカスする位置を設定
+        self.videoInput.device.focusPointOfInterest =
+        CGPointMake(point.y / self.previewImageView.bounds.size.height,
+                    1.0 - point.x / self.previewImageView.bounds.size.width);
+        self.videoInput.device.focusMode = AVCaptureFocusModeAutoFocus;
+        
+    }
+    
+    [self endConfiguration];
+    
+    return ([self isLaterVersion:8.0])? self.videoInput.device.lensPosition:0.0;
+
+}
+
+//
+// 自動フォーカス設定
+//
+- (void)setAutoFocus
+{
+    if (![self beginConfiguration]) return ;
+    
+    // 自動フォーカスを設定
+    self.videoInput.device.focusMode = AVCaptureFocusModeContinuousAutoFocus;
+    
+    [self endConfiguration];
+}
+
+//
+// フォーカスを固定
+//
+- (void)lockFocus
+{
+    if (![self beginConfiguration]) return ;
+        
+    // フォーカスを固定
+    [self.videoInput.device setFocusMode:AVCaptureFocusModeLocked];
+    
+    [self endConfiguration];
+}
+
+//
+// レンズ位置を調整
+//
+// @param (position)    レンズ位置(0.0~1.0)
+// @return              レンズ位置調整に対応しているか
+- (BOOL)setLensePosition:(float)position
+{
+    // iOS8.0以前のバージョンには未対応
+    float iOSVersion = [self iOSVersion];
+    if(iOSVersion < 8.0)
+        return NO;
+    
+    [self beginConfiguration];
+    
+    // レンズ位置を調整
+    [self.videoInput.device setFocusModeLockedWithLensPosition:position completionHandler:nil];
+    
+    [self endConfiguration];
+    
+    return YES;
+}
+
 // ==============================
 // ユーティリティ
 // ==============================
+
+
+//
+// SampleBufferからUIImageを取得
+//
+// @param (SampleBuffer)    バッファに入った撮影した画像
+// @return                  撮影した画像のUIImage
 - (UIImage *)imageFromSampleBuffer:(CMSampleBufferRef)sampleBuffer
 {
     CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
@@ -112,9 +203,58 @@
     return image;
 }
 
+
+//
+// 設定開始前処理
+//
+// @return  処理成功か
+- (BOOL)beginConfiguration
+{
+    NSError *error;
+    if (![self.videoInput.device lockForConfiguration:&error]) {
+        NSLog(@"error: %@", error);
+        return NO;
+    }
+    [self.session beginConfiguration];
+    
+    return YES;
+}
+
+//
+// 設定終了処理
+//
+- (void)endConfiguration
+{
+    [self.session commitConfiguration];
+    [self.videoInput.device unlockForConfiguration];
+}
+
+//
+// iOSのバージョンを取得
+//
+- (float)iOSVersion
+{
+    return [[[UIDevice currentDevice] systemVersion] floatValue];
+}
+
+//
+// iOSのバージョンが指定したバージョンよりも後か
+//
+// @param (version) 確認するバージョン番号
+// @return          指定したバージョンよりも後
+- (BOOL)isLaterVersion:(float)version
+{
+    NSLog(@"current version: %f", [self iOSVersion]);
+    return version <= [self iOSVersion];
+}
+
 // *******************************************************
 //  AVCaptureVideoDataOutputSampleBufferDelegateのメソッド
 // *******************************************************
+
+// ==========================
+// 画像をプレビューに表示
+// ==========================
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection
 {
     // キャプチャしたフレームからCGImageを作成
