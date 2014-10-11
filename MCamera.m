@@ -11,13 +11,17 @@
 
 @implementation MCamera
 
+
 // ==============================
 // カメラ初期化処理
 // ==============================
-- (BOOL)start
+- (BOOL)start:(UIImageView *)preview
 {
 
     NSError *error = nil;
+    
+    // カメラ設定を初期化
+    self.setting = [self initCameraSetting];
     
     // 入力と出力からキャプチャーセッションを作成
     self.session = [[AVCaptureSession alloc] init];
@@ -45,11 +49,12 @@
                                            (id)kCVPixelBufferPixelFormatTypeKey : [NSNumber numberWithInt:kCVPixelFormatType_32BGRA]
                                            };
     
+    // プレビューを設定
+    self.previewImageView = preview;
+    
+    // セッション開始
     [self.session startRunning];
     
-    
-    NSLog(@"minDuration: %f", [self.videoInput.device minExposureTargetBias]);
-    NSLog(@"maxDuration: %f", [self.videoInput.device maxExposureTargetBias]);
     
     return YES;
 }
@@ -59,9 +64,48 @@
 // ==============================
 - (BOOL)finish
 {
+    [self.session stopRunning];
     return YES;
 }
 
+// ==============================
+// カメラの設定値を一括取得
+// ==============================
+
+//
+// カメラ設定を取得
+//
+- (CameraSetting)cameraSetting
+{
+    CameraSetting setting = self.setting;
+    
+    // フォーカス
+    setting.lense_pos = [self lensePosition];
+    
+    // 露光時間
+    setting.exposure = [self normalizedExposureDuration];
+    
+    // ISO
+    setting.iso = [self ISO];
+    
+    // バイアス
+    setting.bias = 0.0;
+    
+    return setting;
+}
+
+//
+// カメラの設定値を初期化
+//
+- (CameraSetting)initCameraSetting
+{
+    CameraSetting setting;
+    
+    // 設定値を取得
+    setting = [self cameraSetting];
+    
+    return setting;
+}
 
 // ==============================
 // カメラ撮影処理
@@ -87,7 +131,7 @@
 // @param (point)       フォーカスを合わせる位置
 // @param (drawRect)    フォーカス位置に矩形を描画するか
 // @return              レンズ位置(0.0~1.0)
-- (float)focus:(CGPoint)point;
+- (float)focusAt:(CGPoint)point;
 {
     
     [self beginConfiguration];
@@ -124,17 +168,29 @@
 }
 
 //
+// 自動フォーカスモードか
+//
+// @return  自動フォーカスモードであるか
+- (BOOL)isAutoFocus
+{
+    return (self.videoInput.device.focusMode == AVCaptureFocusModeContinuousAutoFocus);
+}
+
+//
 // フォーカスを固定
 //
 - (void)lockFocus
 {
     if (![self beginConfiguration]) return ;
-        
+ 
+    
     // フォーカスを固定
     [self.videoInput.device setFocusMode:AVCaptureFocusModeLocked];
     
     [self endConfiguration];
 }
+
+
 
 //
 // レンズ位置を調整
@@ -143,9 +199,9 @@
 // @return              レンズ位置調整に対応しているか
 - (BOOL)setLensePosition:(float)position
 {
+    
     // iOS8.0以前のバージョンには未対応
-    float iOSVersion = [self iOSVersion];
-    if(iOSVersion < 8.0)
+    if(![self isLaterVersion:8.0])
         return NO;
     
     [self beginConfiguration];
@@ -173,6 +229,34 @@
 // 露光時間調整
 // ==============================
 
+
+//
+// 露光時間を自動調整
+//
+- (void)setAutoExposure
+{
+    [self.videoInput.device setExposureMode:AVCaptureExposureModeContinuousAutoExposure];
+}
+
+//
+// 自動露光時間調節モードか
+//
+// @return  自動調節モードである
+- (BOOL)isAutoExposure
+{
+    return (self.videoInput.device.exposureMode == AVCaptureExposureModeContinuousAutoExposure);
+}
+
+//
+// 露光時間を固定
+//
+- (void)lockExposure
+{
+    [self.videoInput.device setExposureMode:AVCaptureExposureModeLocked];
+}
+
+
+
 //
 // 露光時間の設定が可能か
 //
@@ -189,6 +273,7 @@
 // @return              実際に設定された露光時間[ms]
 - (float)setExposureDuration:(float)duration
 {
+    
     if (![self isLaterVersion:8.0])
         return [self exposureDuration];
     
@@ -255,10 +340,14 @@
 // @param (isoValue)    設定するISO値(0~1)
 - (void)setISO:(float)isoValue
 {
+    if (![self isLaterVersion:8.0]) {
+        NSLog(@"current ios version(%f) is not supported", [self iOSVersion]);
+        return;
+    }
+    
     [self beginConfiguration];
     
     [self.videoInput.device setExposureMode:AVCaptureExposureModeCustom];
-    NSLog(@"set iso value %f", isoValue);
     
     // ISO値を設定
     float maxISO = self.videoInput.device.activeFormat.maxISO;

@@ -14,7 +14,32 @@
 #import <CoreMedia/CoreMedia.h>
 #import <CoreGraphics/CoreGraphics.h>
 
+
+//
+// 設定項目
+//
+enum SettingType {
+    PROP_FOCUS = 0,
+    PROP_EXPOSURE,
+    PROP_ISO,
+    PROP_BIAS,
+    NUM_PROP
+};
+
+//
+// カメラパラメータ一覧
+//
+typedef struct setting {
+    
+    float exposure;     // 正規化露光時間
+    float lense_pos;    // レンズ位置
+    float iso;          // ISO値
+    float bias;         // バイアス値
+    
+} CameraSetting;
+
 @interface MCamera : NSObject <AVCaptureVideoDataOutputSampleBufferDelegate>
+
 
 // ******************************
 // ビデオ入出力
@@ -36,8 +61,23 @@
 // ==============================
 // カメラ初期化・終了処理
 // ==============================
-- (BOOL)start;
+- (BOOL)start:(UIImageView *)preview;
 - (BOOL)finish;
+
+// ==============================
+// カメラの設定値
+// ==============================
+@property CameraSetting setting;
+
+//
+// カメラの設定値を取得
+//
+- (CameraSetting)cameraSetting;
+
+//
+// カメラの設定値を初期化
+//
+- (CameraSetting)initCameraSetting;
 
 
 // ==============================
@@ -60,12 +100,18 @@
 //
 // @param (point)       フォーカスを合わせる位置
 // @param (drawRect)    フォーカス位置に矩形を描画するか
-- (float)focus:(CGPoint)point;
+- (float)focusAt:(CGPoint)point;
 
 //
 // 自動フォーカス設定
 //
 - (void)setAutoFocus;
+
+//
+// 自動フォーカスモードか
+//
+// @return  自動フォーカスモードであるか
+- (BOOL)isAutoFocus;
 
 //
 // フォーカスを固定
@@ -90,6 +136,23 @@
 // ==============================
 
 #define EXPOSURE_DURATION_POWER 5
+
+//
+// 露光時間を自動調整
+//
+- (void)setAutoExposure;
+
+//
+// 自動露光時間調節モードか
+//
+// @return  自動調節モードである
+- (BOOL)isAutoExposure;
+
+//
+// 露光時間を固定
+//
+- (void)lockExposure;
+
 
 //
 // 露光時間の設定が可能か
