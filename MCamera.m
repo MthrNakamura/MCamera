@@ -235,7 +235,9 @@
 //
 - (void)setAutoExposure
 {
+    [self beginConfiguration];
     [self.videoInput.device setExposureMode:AVCaptureExposureModeContinuousAutoExposure];
+    [self endConfiguration];
 }
 
 //
@@ -252,7 +254,9 @@
 //
 - (void)lockExposure
 {
+    [self beginConfiguration];
     [self.videoInput.device setExposureMode:AVCaptureExposureModeLocked];
+    [self endConfiguration];
 }
 
 
