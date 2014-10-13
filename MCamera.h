@@ -136,11 +136,18 @@ typedef struct setting {
 // ==============================
 
 #define EXPOSURE_DURATION_POWER 5
+@property BOOL isAdjustingExposure;
 
 //
 // 露光時間を自動調整
 //
 - (void)setAutoExposure;
+
+//
+// 指定した位置に露光時間を自動調整
+//
+// @param (position)    露光時間を調整する位置
+- (void)setExposureAt:(CGPoint)p;
 
 //
 // 自動露光時間調節モードか

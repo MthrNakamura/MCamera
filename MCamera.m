@@ -52,6 +52,9 @@
     // プレビューを設定
     self.previewImageView = preview;
     
+    // 露光時間調整フラグを初期化
+    self.isAdjustingExposure = NO;
+    
     // セッション開始
     [self.session startRunning];
     
@@ -259,7 +262,50 @@
     [self endConfiguration];
 }
 
+//
+// 指定した位置に露光時間を自動調整
+//
+// @param (position)    露光時間を調整する位置
+- (void)setExposureAt:(CGPoint)p
+{
+    [self beginConfiguration];
+    
+    if ([self.videoInput.device isExposurePointOfInterestSupported] &&
+        [self.videoInput.device isExposureModeSupported:AVCaptureExposureModeContinuousAutoExposure]) {
+        
+        self.isAdjustingExposure = YES;
+        [self.videoInput.device addObserver:self forKeyPath:@"adjustingExposure" options:NSKeyValueObservingOptionNew context:nil];
+        
+        self.videoInput.device.exposurePointOfInterest = p;
+        self.videoInput.device.exposureMode = AVCaptureExposureModeContinuousAutoExposure;
+        
+    }
+    [self endConfiguration];
+}
 
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
+{
+    if (![keyPath isEqual:@"adjustingExposure"])
+        return ;
+    
+    if (!self.isAdjustingExposure)
+        return ;
+    
+    if ([keyPath isEqualToString:@"adjustingExposure"] &&
+        [[change objectForKey:NSKeyValueChangeNewKey]boolValue]==NO) {
+        
+        self.isAdjustingExposure = NO;
+        
+        [self beginConfiguration];
+        
+        AVCaptureDevice *captureDevice = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
+        
+        [captureDevice setExposureMode:AVCaptureExposureModeLocked];
+        
+        [self endConfiguration];
+        
+    }
+}
 
 //
 // 露光時間の設定が可能か
@@ -321,7 +367,7 @@
     float maxDuration = CMTimeGetSeconds(self.videoInput.device.activeFormat.maxExposureDuration);
     float currentDuration = [self exposureDuration] / 1000.0;
     
-    return pow((currentDuration - minDuration) / (maxDuration - minDuration), 1/EXPOSURE_DURATION_POWER);
+    return pow((currentDuration - minDuration) / (maxDuration - minDuration), 1.0f/EXPOSURE_DURATION_POWER);
 }
 
 
@@ -354,6 +400,7 @@
     [self.videoInput.device setExposureMode:AVCaptureExposureModeCustom];
     
     // ISO値を設定
+    isoValue = powf(isoValue, EXPOSURE_DURATION_POWER);
     float maxISO = self.videoInput.device.activeFormat.maxISO;
     float minISO = self.videoInput.device.activeFormat.minISO;
     isoValue = (maxISO - minISO) * isoValue + minISO;
