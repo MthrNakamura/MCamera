@@ -1,4 +1,4 @@
-MCamera
+MCamera 
 
 MCamera is a class using the camera features of AVFoundation.It is easy to use the camera features and install your iOS Apps.
 This class can control lots of camera parameters manually in later version of iOS8.
@@ -37,6 +37,9 @@ UIImage *image = [self.camera capture];
 Here are currently custamable camera parameters below.
 Other parameters (e.g. White Balance, Bias,...) will be custamable soon!
 
-<li>Focus Length</li>
-<li>Exposure Duration</li>
-<li>ISO</li>
+*Focus Length
+*Exposure Duration
+*ISO
+
+
+(https://github.com/MthrNakamura/MCamera)
