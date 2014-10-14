@@ -15,20 +15,25 @@ That's it!
 # Example
 
 @property MCamera *camera;
+
 @property UIImageView *preview;
 
 ...
 
 // initialize your MCamera
+
 self.camera = [[MCamera alloc]init];
 
 // start your MCamera
+
 // captured images will be shown in self.preview
+
 [self.camera start: self.preview];
 
 ...
 
 // take a picture
+
 UIImage *image = [self.camera capture];
 
 
