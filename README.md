@@ -38,7 +38,9 @@ Here are currently custamable camera parameters below.
 Other parameters (e.g. White Balance, Bias,...) will be custamable soon!
 
 *Focus Length
+
 *Exposure Duration
+
 *ISO
 
 
